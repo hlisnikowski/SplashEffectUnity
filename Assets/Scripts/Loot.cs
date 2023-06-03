@@ -115,7 +115,7 @@ public class Loot : MonoBehaviour
 
 			if (bounces < settings.numberOfBounces)
 			{
-				Initialize(new Vector2(groundVelocity.x / settings.XReducer, groundVelocity.y / settings.XReducer));
+				Initialize(new Vector2(groundVelocity.x / settings.XReducer, groundVelocity.y / settings.YReducer));
 			}
 			else {
 
