@@ -34,4 +34,7 @@ public class SplashSettings : ScriptableObject
 
 	public float destroyTime = 0f;
 
+    	[Tooltip("When Item hits the wall with that tag")]
+   	public string[] colliderTags;
+
 }
