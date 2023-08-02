@@ -1,9 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 
-[RequireComponent(typeof(BoxCollider2D))]
 public class Loot : MonoBehaviour
 {
 	// You can chose to use Scriptable Object or Serialized.
@@ -15,6 +15,7 @@ public class Loot : MonoBehaviour
 	private bool isGrounded = true;
 	private Vector2 groundVelocity;
 	private float verticalVelocity, afterVelocity;
+	private bool collide;
 
 	private Transform t_parent; // Main
 	private Transform t_body; // Body
@@ -22,8 +23,10 @@ public class Loot : MonoBehaviour
 
 	#region OPTIONAL PICK UP
 	bool canCollect;
-	// Make it trigger
+
 	BoxCollider2D pickUpCollision;
+	// Detect if hits the wall / even it looks like its never used, it is.
+	BoxCollider2D triggerCollision;
 
 	// Dont forget to add rigidbody to the player and right Tag
 	private void PickUp(Collider2D collision)
@@ -33,23 +36,41 @@ public class Loot : MonoBehaviour
 		Destroy(this.gameObject);
 	}
 
-	private void OnTriggerEnter2D(Collider2D collision)
+   	private void OnTriggerEnter2D(Collider2D collision)
 	{
 		if (collision.CompareTag(settings.collectorTag) && canCollect)
 			PickUp(collision);
-	}
-	#endregion
 
-	void Start()
+		if (CompareCollisionTags(collision))
+			collide = true;
+    	}
+
+    #endregion
+
+    void Awake()
+    {
+        pickUpCollision = GetComponent<BoxCollider2D>();
+        pickUpCollision.enabled = false;
+        // Sprite has to be disabled, its sprite is only for t_body sprite
+        GetComponent<SpriteRenderer>().enabled = false;
+    }
+
+
+    void Start()
 	{
-		if(settings.destroyTime > 0)
+        var colliders = GetComponents<BoxCollider2D>();
+
+        if (colliders.Length < 2)
+        {
+            Debug.LogError($"Loot {gameObject.name} require atleast 2 BoxCollider2Ds.");
+            return;
+        }
+
+        colliders.All(col => col.isTrigger = true);
+
+        if (settings.destroyTime > 0)
 			Destroy(this.gameObject, settings.destroyTime);
 
-		pickUpCollision = GetComponent<BoxCollider2D>();
-		pickUpCollision.enabled = false;
-
-		// Sprite has to be disabled, its sprite is only for t_body sprite
-		GetComponent<SpriteRenderer>().enabled = false;
 		CreateBody();
 		CreateShadow();
 		SimulateDrop();
@@ -57,7 +78,7 @@ public class Loot : MonoBehaviour
 
 	void Update()
 	{
-		UpdatePosition();
+        UpdatePosition();
 	}
 
 	void Initialize(Vector2 groundvelocity)
@@ -96,10 +117,17 @@ public class Loot : MonoBehaviour
 	{
 		if (!isGrounded)
 		{
-			verticalVelocity += settings.gravity * Time.deltaTime;
-		    t_body.position += new Vector3(0, verticalVelocity, 0) * Time.deltaTime;
-			t_parent.position += (Vector3)groundVelocity * Time.deltaTime;
-			CheckGroundHit();
+            verticalVelocity += settings.gravity * Time.deltaTime;
+
+			// if item didnt hit anything let it move on X axis
+            if (!collide)
+			{
+				t_parent.position += (Vector3)groundVelocity * Time.deltaTime;
+			}
+            t_body.position += new Vector3(0, verticalVelocity, 0) * Time.deltaTime;
+
+
+            CheckGroundHit();
 		}
 	}
 
@@ -115,7 +143,7 @@ public class Loot : MonoBehaviour
 
 			if (bounces < settings.numberOfBounces)
 			{
-				Initialize(new Vector2(groundVelocity.x / settings.XReducer, groundVelocity.y / settings.YReducer));
+				Initialize(new Vector2(groundVelocity.x / settings.XReducer, groundVelocity.y / settings.XReducer));
 			}
 			else {
 
@@ -140,9 +168,21 @@ public class Loot : MonoBehaviour
 		canCollect = true;
 	}
 
-	#region SPRITE RENDER PARTS 
+	private bool CompareCollisionTags(Collider2D collider)
+	{
+		return settings.colliderTags.Contains(collider.tag);
+	}
 
-	private SpriteRenderer sprRndCaster;
+    // This will Add 2 BoxColliders2D when Loot script has been added to GameObject in Inspector
+    private void Reset()
+    {
+        this.gameObject.AddComponent<BoxCollider2D>();
+        this.gameObject.AddComponent<BoxCollider2D>();
+    }
+
+    #region SPRITE RENDER PARTS 
+
+    private SpriteRenderer sprRndCaster;
 	private SpriteRenderer sprRndBody;
 	private SpriteRenderer sprRndShadow;
 
@@ -219,6 +259,8 @@ public class LootSettings
 
 	public float destroyTime = 0f;
 
+    	[Tooltip("When Item hits the wall with that tag")]
+    	public string[] colliderTags;
 	
 }
 
